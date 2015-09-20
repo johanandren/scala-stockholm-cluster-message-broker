@@ -1,5 +1,7 @@
-import akka.actor.{Address, RootActorPath, ActorSystem}
+import akka.actor.{Props, Address, RootActorPath, ActorSystem}
 import akka.cluster.Cluster
+import akka.cluster.client.ClusterClientReceptionist
+import akka.cluster.pubsub.DistributedPubSub
 import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.Await
@@ -13,7 +15,7 @@ object ClusterApp extends App {
   val (ip, port) = args.toList match {
     case IpPort(ip, port) :: Nil => (ip, port.toInt)
     case _ =>
-      throw new RuntimeException("Invalid startup parameters\nUsage: server [ip:port]")
+      throw new RuntimeException("Invalid startup parameters\nUsage: server [ip:port] (port must be 2551 and upwards)")
   }
 
   val config = ConfigFactory.parseString(
@@ -28,16 +30,12 @@ object ClusterApp extends App {
       | }
     """.stripMargin).withFallback(ConfigFactory.load("cluster"))
 
-  val system = ActorSystem("MessageBroker", config)
+  val system = ActorSystem("ChatCluster", config)
 
-  // 1. startup cluster (already sort of done)
+  val webPort = 9000 + port - 2551
+  val webserver = system.actorOf(WebServer.props(ip, webPort), "webserver")
 
-  // 2. setup distributed pub-sub
-
-  // 3. profit
-
-
-  println("Kill with 'q'")
+  println("Node started. Kill with 'q' + enter")
   Stream.continually(StdIn.readLine()).takeWhile(_ != "q")
 
   // gracefully leave the cluster

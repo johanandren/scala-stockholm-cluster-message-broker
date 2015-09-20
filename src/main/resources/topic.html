@@ -1,0 +1,51 @@
+<html>
+  <head>
+
+  </head>
+
+  <body>
+    <h1 id="topic"></h1>
+    <textarea id="message"></textarea>
+    <button id="send">Publish</button>
+
+    <ol id="messages">
+    </ol>
+  </body>
+
+
+  <script language="JavaScript">
+    var pathArray = window.location.pathname.split('/')
+    var topic = pathArray[1]
+    document.getElementById("topic").appendChild(document.createTextNode(topic))
+
+    var messageField = document.getElementById("message")
+    var messagesList = document.getElementById("messages")
+    function appendMessage(text) {
+      var item = document.createElement("li")
+      item.appendChild(document.createTextNode(text))
+      messagesList.appendChild(item)
+    }
+
+
+    var websocketUrl = (window.location.href + "/ws").replace(/^http/, "ws")
+    var websocket = new WebSocket(websocketUrl)
+    websocket.onopen = function() {
+      console.log("Connected")
+    }
+    websocket.onerror = function(error) {
+      alert(error)
+    }
+    websocket.onmessage = function(message) {
+      appendMessage("Received: " + message.data)
+    }
+    document.getElementById("send").onclick = function() {
+      var message = messageField.value
+      websocket.send(message)
+      appendMessage("Sent: " + message)
+      messageField.value = ""
+    }
+
+
+  </script>
+
+</html>
