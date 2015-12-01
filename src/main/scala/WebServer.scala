@@ -4,7 +4,7 @@ import akka.http.scaladsl.model.ws.{TextMessage, Message}
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.ContentTypeResolver.Default
 import akka.stream.scaladsl._
-import akka.stream.{OverflowStrategy, ActorMaterializer}
+import akka.stream.{FlowShape, OverflowStrategy, ActorMaterializer}
 
 object WebServer {
   def props(host: String, port: Int) = Props(new WebServer(host, port))
@@ -66,7 +66,7 @@ class WebServer(host: String, port: Int) extends Actor with ActorLogging {
     val source: Source[Message, ActorRef] = Source.actorRef[TopicConnection.Message](bufferSize, OverflowStrategy.fail)
       .map(msg => TextMessage(msg.text))
 
-    Flow(source) {
+    Flow.fromGraph(FlowGraph.create(source) {
       implicit b => { (responseSource) =>
         import FlowGraph.Implicits._
         val merge = b.add(Merge[Any](2))
@@ -85,9 +85,9 @@ class WebServer(host: String, port: Int) extends Actor with ActorLogging {
         merge ~> toActor
 
 
-        (transformIncoming.inlet, responseSource.outlet)
+        FlowShape.of(transformIncoming.inlet, responseSource.outlet)
       }
-    }
+    })
   }
 
 }
