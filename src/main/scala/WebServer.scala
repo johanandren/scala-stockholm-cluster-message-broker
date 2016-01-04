@@ -66,9 +66,9 @@ class WebServer(host: String, port: Int) extends Actor with ActorLogging {
     val source: Source[Message, ActorRef] = Source.actorRef[TopicConnection.Message](bufferSize, OverflowStrategy.fail)
       .map(msg => TextMessage(msg.text))
 
-    Flow.fromGraph(FlowGraph.create(source) {
+    Flow.fromGraph(GraphDSL.create(source) {
       implicit b => { (responseSource) =>
-        import FlowGraph.Implicits._
+        import GraphDSL.Implicits._
         val merge = b.add(Merge[Any](2))
         val toActor = b.add(Sink.actorRef(topicConnection, PoisonPill))
         val transformIncoming = b.add(Flow[Message].map {
@@ -85,7 +85,7 @@ class WebServer(host: String, port: Int) extends Actor with ActorLogging {
         merge ~> toActor
 
 
-        FlowShape.of(transformIncoming.inlet, responseSource.outlet)
+        FlowShape.of(transformIncoming.in, responseSource.out)
       }
     })
   }

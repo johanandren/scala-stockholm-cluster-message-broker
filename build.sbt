@@ -3,7 +3,7 @@ name := "Clustered Chat"
 scalacOptions ++= Seq("-deprecation")
 scalaVersion := "2.11.7"
 lazy val akkaV = "2.4.1"
-lazy val akkaStreamsV = "2.0-M2"
+lazy val akkaStreamsV = "2.0.1"
 libraryDependencies ++= Seq(
    "com.typesafe.akka" %% "akka-actor" % akkaV,
    "com.typesafe.akka" %% "akka-cluster" % akkaV,
