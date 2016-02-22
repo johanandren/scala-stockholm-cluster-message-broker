@@ -61,33 +61,25 @@ class WebServer(host: String, port: Int) extends Actor with ActorLogging {
 
     val topicConnection = context.system.actorOf(TopicConnection.props(topic))
 
-    // will materialize a destination actor, when messages are sent to it, it will emit them
-    // into the source
+    // will materialize a destination actor, when materialized its actorRef is sent to the topic connection actor
+    // so that it can send messages to it to pass them out to the websocket client
     val source: Source[Message, ActorRef] = Source.actorRef[TopicConnection.Message](bufferSize, OverflowStrategy.fail)
       .map(msg => TextMessage(msg.text))
+      .mapMaterializedValue { destinationRef =>
+        topicConnection ! TopicConnection.OutgoingDestination(destinationRef)
+        destinationRef
+      }
 
-    Flow.fromGraph(GraphDSL.create(source) {
-      implicit b => { (responseSource) =>
-        import GraphDSL.Implicits._
-        val merge = b.add(Merge[Any](2))
-        val toActor = b.add(Sink.actorRef(topicConnection, PoisonPill))
-        val transformIncoming = b.add(Flow[Message].map {
+    // will pass messages incomming messages to the topic actor
+    val sink =
+      Flow[AnyRef]
+        .map {
           case TextMessage.Strict(text) => TopicConnection.Message(text)
           case x => throw new RuntimeException("Unknown incoming message type")
-        })
+        }
+        .to(Sink.actorRef[AnyRef](topicConnection, PoisonPill))
 
-        // 1. source of flow's materialized value (i.e., the actor source)
-        // 2. source of incoming messages
-        // 3. merge #1 and #2 into one stream and direct it to the external actor
-        b.materializedValue ~> Flow[ActorRef].map(TopicConnection.OutgoingDestination) ~> merge.in(0)
-        transformIncoming ~> merge.in(1)
-
-        merge ~> toActor
-
-
-        FlowShape.of(transformIncoming.in, responseSource.out)
-      }
-    })
+    Flow.fromSinkAndSource(sink, source)
   }
 
 }
